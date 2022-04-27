@@ -7,6 +7,7 @@ from tqdm.auto import tqdm
 import random
 import wandb
 import nltk
+import datasets
 import numpy as np
 from packaging import version
 
@@ -44,21 +45,7 @@ logging.basicConfig(
 transformers.utils.logging.set_verbosity_warning()
 
 def parse_args():
-    """This function creates argument parser and parses the scrip input arguments.
-    This is the most common way to define input arguments in python.
-
-    To change the parameters, pass them to the script, for example:
-
-    python cli/train.py \
-        --source_lang en \
-        --target_lang es \
-        --output_dir output_dir \
-        --weight_decay 0.01
-    
-    DO NOT MODIFY THIS FUNCTION
-    This is not only restricted for this homework, but also a generally bad practice.
-    Default arguments have the meaning of being a reasonable default value, not of the last arguments used.
-    """
+    """This function creates argument parser and parses the scrip input arguments."""
     parser = argparse.ArgumentParser(description="Train machine translation transformer model")
 
     # Required arguments
@@ -97,33 +84,9 @@ def parse_args():
     )
     # Model arguments
     parser.add_argument(
-        "--num_layers",
-        default=6,
-        type=int,
-        help="Number of hidden layers in the Transformer encoder",
-    )
-    parser.add_argument(
-        "--hidden_size",
-        default=512,
-        type=int,
-        help="Hidden size of the Transformer encoder",
-    )
-    parser.add_argument(
-        "--num_heads",
-        default=8,
-        type=int,
-        help="Number of attention heads in the Transformer encoder",
-    )
-    parser.add_argument(
-        "--fcn_hidden",
-        default=2048,
-        type=int,
-        help="Hidden size of the FCN",
-    )
-    parser.add_argument(
         "--max_seq_length",
         type=int,
-        default=128,
+        default=256,
         help="The maximum total sequence length for source and target texts after "
         "tokenization. Sequences longer than this will be truncated, sequences shorter will be padded."
         "during ``evaluate`` and ``predict``.",
@@ -227,7 +190,7 @@ def parse_args():
     )
     parser.add_argument(
         "--wandb_project", 
-        default="transformer_mt",
+        default="pre-trained-bart",
         help="wandb project name to log metrics to"
     )
     parser.add_argument(
@@ -260,7 +223,7 @@ def parse_args():
 
 
 
-
+args = parse_args()
 dataset = load_dataset(args.dataset_name, args.dataset_version)
 metric = load_metric(args.metric)
 
@@ -500,7 +463,7 @@ def main():
                 step=global_step,
             )
 
-            if global_step % logging_steps == 0:
+            if global_step % args.logging_steps == 0:
                 predictions = logits.argmax(-1)
                 label_nonpad_mask = labels != tokenizer.pad_token_id
                 num_words_in_batch = label_nonpad_mask.sum().item()
