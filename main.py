@@ -313,8 +313,7 @@ def main():
     ###############################################################################
     tokenizer = BartTokenizer.from_pretrained('facebook/bart-base')
     model = BartForConditionalGeneration.from_pretrained('facebook/bart-base')
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    model = model.to(device)
+    model = model.to(args.device)
     ###############################################################################
     # Part 3: Pre-process the data
     ###############################################################################
@@ -421,18 +420,18 @@ def main():
     # Part 6: Training loop
     ###############################################################################
     global_step = 0
-    para_loader_train = pl.ParallelLoader(train_dataloader, [device])
-    para_loader_eval = pl.ParallelLoader(eval_dataloader, [device])
+    para_loader_train = pl.ParallelLoader(train_dataloader, [args.device])
+    para_loader_eval = pl.ParallelLoader(eval_dataloader, [args.device])
     # iterate over epochs
     for epoch in range(num_train_epochs):
         model.train()  # make sure that model is in training mode, e.g. dropout is enabled
 
         # iterate over batches
-        for batch in para_loader_train.per_device_loader(device):
-            input_ids = batch["input_ids"].to(device)
-            decoder_input_ids = batch["decoder_input_ids"].to(device)
-            key_padding_mask = batch["encoder_padding_mask"].to(device)
-            labels = batch["labels"].to(device)
+        for batch in para_loader_train.per_device_loader(args.device):
+            input_ids = batch["input_ids"].to(args.device)
+            decoder_input_ids = batch["decoder_input_ids"].to(args.device)
+            key_padding_mask = batch["encoder_padding_mask"].to(args.device)
+            labels = batch["labels"].to(args.device)
 
             logits = model(
                 input_ids,
@@ -480,7 +479,7 @@ def main():
                     model=model,
                     dataloader=para_loader_eval.per_device_loader(args.device),
                     tokenizer=tokenizer,
-                    device=device,
+                    device=args.device,
                     max_seq_length=max_seq_length,
                     generation_type=args.generation_type,
                     beam_size=args.beam_size,
