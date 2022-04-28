@@ -53,6 +53,7 @@ def parse_args():
         "--output_dir",
         type=str,
         required=True,
+        default = "output_dir",
         help=("Where to store the final model. "
               "Should contain the source and target tokenizers in the following format: "
               r"output_dir/{source_lang}_tokenizer and output_dir/{target_lang}_tokenizer. "
@@ -61,12 +62,6 @@ def parse_args():
     )
    
     # Data arguments
-    parser.add_argument(
-        "--dataset_name",
-        type=str,
-        default="stas/wmt14-en-de-pre-processed",
-        help="The name of the dataset to use (via the datasets library).",
-    )
     parser.add_argument(
         "--dataset_config_name",
         type=str,
@@ -223,9 +218,7 @@ def parse_args():
 
 
 
-args = parse_args()
-dataset = load_dataset(args.dataset_name, args.dataset_version)
-metric = load_metric(args.metric)
+
 
 max_seq_length = 256
 
@@ -257,6 +250,7 @@ def evaluate_model(
     max_seq_length,
     generation_type,
     beam_size,
+    metric
 ):
     n_generated_tokens = 0
     model.eval()
@@ -307,7 +301,7 @@ def main():
 
     # Load the datasets
     dataset = load_dataset("cnn_dailymail", '3.0.0')
-
+    metric = load_metric(args.metric)
     ###############################################################################
     # Part 2: Create the model and load the tokenizers
     ###############################################################################
@@ -483,6 +477,7 @@ def main():
                     max_seq_length=max_seq_length,
                     generation_type=args.generation_type,
                     beam_size=args.beam_size,
+                    metric=metric
                 )
                 # YOUR CODE ENDS HERE
                 wandb.log(
