@@ -404,8 +404,8 @@ def main():
     logger.info("***** Running training *****")
     logger.info(f"  Num examples = {len(train_dataset)}")
     logger.info(f"  Num Epochs = {num_train_epochs}")
-    logger.info(f"  Total optimization steps = {max_train_steps}")
-    progress_bar = tqdm(range(max_train_steps))
+    logger.info(f"  Total optimization steps = {args.max_train_steps}")
+    progress_bar = tqdm(range(args.max_train_steps))
 
     # Log a pre-processed training example to make sure the pre-processing does not have bugs in it
     # and we do not input garbage to our model.
