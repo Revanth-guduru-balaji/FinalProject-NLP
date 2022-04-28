@@ -233,12 +233,17 @@ def postprocess_text(preds, labels):
 
     return preds, labels
 
-def preprocess_function(examples,tokenizer):
+def preprocess_function(examples,tokenizer,max_seq_length):
     inputs = [ex for ex in examples['article']]
     targets = [ex for ex in examples['highlights']]
-    model_inputs = tokenizer(inputs, max_length=max_seq_length, truncation=True)
-    model_inputs['labels'] = tokenizer(targets, max_length=max_seq_length, truncation=True)['input_ids']
-    return model_inputs
+    source_tokenized = tokenizer(inputs, max_length=max_seq_length, truncation=True)
+    target_tokenized = tokenizer(targets, max_length=max_seq_length, truncation=True)
+    batch = {k: v for k, v in source_tokenized.items()}
+    batch["labels"] = [
+        [-100 if token == tokenizer.pad_token_id else token for token in l]
+        for l in target_tokenized["input_ids"]
+    ]
+    return batch
 
 
 def evaluate_model(
@@ -322,7 +327,7 @@ def main():
     processed_datasets = dataset.map(
         preprocess_function_wrapped,
         batched=True,
-        num_proc=8,
+        num_proc=0,
         remove_columns=column_names,
         load_from_cache_file=not None,
         desc="Running tokenizer on dataset",
