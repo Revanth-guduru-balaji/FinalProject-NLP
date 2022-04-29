@@ -220,7 +220,8 @@ def parse_args():
 
 
 
-max_seq_length = 256
+encoder_max_length = 256
+decoder_max_length = 64
 
 nltk.download("punkt", quiet=True)
 def postprocess_text(preds, labels):
@@ -233,11 +234,11 @@ def postprocess_text(preds, labels):
 
     return preds, labels
 
-def preprocess_function(examples,tokenizer,max_seq_length):
+def preprocess_function(examples,tokenizer,max_input_length,max_target_length):
     inputs = [ex for ex in examples['article']]
     targets = [ex for ex in examples['highlights']]
-    source_tokenized = tokenizer(inputs, max_length=max_seq_length, truncation=True)
-    target_tokenized = tokenizer(targets, max_length=max_seq_length, truncation=True)
+    source_tokenized = tokenizer(inputs, max_length=max_input_length, truncation=True)
+    target_tokenized = tokenizer(targets, max_length=max_target_length, truncation=True)
     batch = {k: v for k, v in source_tokenized.items()}
     batch["labels"] = [
         [-100 if token == tokenizer.pad_token_id else token for token in l]
@@ -293,7 +294,7 @@ def evaluate_model(
     }
     return evaluation_results, input_ids, decoded_preds, decoded_labels
 
-def main():
+def main(index):
     # Initialize wandb as soon as possible to log all stdout to the cloud
     args = parse_args()
     wandb.init(project='pre-trained-bart',config=args)
@@ -321,13 +322,14 @@ def main():
     column_names = dataset["train"].column_names
     preprocess_function_wrapped = partial(
         preprocess_function,
-        max_seq_length=max_seq_length,
+        max_input_length=encoder_max_length,
+        max_target_length=decoder_max_length,
         tokenizer=tokenizer
     )
     processed_datasets = dataset.map(
         preprocess_function_wrapped,
         batched=True,
-        num_proc=0,
+        num_proc=8,
         remove_columns=column_names,
         load_from_cache_file=not None,
         desc="Running tokenizer on dataset",
@@ -346,7 +348,7 @@ def main():
     # Part 4: Create PyTorch dataloaders that handle data shuffling and batching
     ###############################################################################
     
-    data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model, max_length=max_seq_length, padding='max_length')
+    data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model, padding='max_length')
 
     collation_function_for_seq2seq_wrapped = partial(
         data_collator
