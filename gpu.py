@@ -235,17 +235,18 @@ def postprocess_text(preds, labels):
 
     return preds, labels
 
+prefix = "summarize"
 def preprocess_function(examples,tokenizer,max_input_length,max_target_length):
-    inputs = [ex for ex in examples['article']]
-    targets = [ex for ex in examples['highlights']]
-    source_tokenized = tokenizer(inputs, max_length=max_input_length, truncation=True)
-    target_tokenized = tokenizer(targets, max_length=max_target_length, truncation=True)
-    batch = {k: v for k, v in source_tokenized.items()}
-    batch["labels"] = [
-        [-100 if token == tokenizer.pad_token_id else token for token in l]
-        for l in target_tokenized["input_ids"]
-    ]
-    return batch
+    inputs = [prefix + doc for doc in examples["article"]]
+    model_inputs = tokenizer(inputs, max_length=max_input_length, truncation=True)
+
+    # Setup the tokenizer for targets
+    with tokenizer.as_target_tokenizer():
+        labels = tokenizer(examples["highlights"], max_length=max_target_length, truncation=True)
+
+    model_inputs["labels"] = labels["input_ids"]
+    return model_inputs
+
 
 def evaluate_model(
     model,
@@ -347,7 +348,7 @@ def main():
     # Part 4: Create PyTorch dataloaders that handle data shuffling and batching
     ###############################################################################
     
-    data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model, max_length=max_seq_length, padding='max_length')
+    data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model, padding='max_length')
 
     collation_function_for_seq2seq_wrapped = partial(
         data_collator
@@ -394,7 +395,7 @@ def main():
     logger.info(f"  Num examples = {len(train_dataset)}")
     logger.info(f"  Num Epochs = {num_train_epochs}")
     logger.info(f"  Total optimization steps = {args.max_train_steps}")
-    progress_bar = tqdm(range(args.__format__max_train_steps))
+    progress_bar = tqdm(range(args.max_train_steps))
 
     # Log a pre-processed training example to make sure the pre-processing does not have bugs in it
     # and we do not input garbage to our model.
