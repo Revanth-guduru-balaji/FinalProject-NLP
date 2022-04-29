@@ -62,12 +62,6 @@ def parse_args():
    
     # Data arguments
     parser.add_argument(
-        "--dataset_name",
-        type=str,
-        default="stas/wmt14-en-de-pre-processed",
-        help="The name of the dataset to use (via the datasets library).",
-    )
-    parser.add_argument(
         "--dataset_config_name",
         type=str,
         default="en-de",
