@@ -294,56 +294,7 @@ def evaluate_model(
     }
     return evaluation_results, input_ids, decoded_preds, decoded_labels
 
-def main(index):
-    # Initialize wandb as soon as possible to log all stdout to the cloud
-    args = parse_args()
-    wandb.init(project='pre-trained-bart',config=args)
-    ###############################################################################
-    # Part 1: Load the data
-    ###############################################################################
-
-    # Make sure output directory exists, if not create it
-    os.makedirs(args.output_dir, exist_ok=True)
-
-    # Load the datasets
-    dataset = load_dataset("cnn_dailymail", '3.0.0')
-    metric = load_metric(args.metric)
-    ###############################################################################
-    # Part 2: Create the model and load the tokenizers
-    ###############################################################################
-    tokenizer = BartTokenizer.from_pretrained('facebook/bart-base')
-    model = BartForConditionalGeneration.from_pretrained('facebook/bart-base')
-    model = model.to(args.device)
-    ###############################################################################
-    # Part 3: Pre-process the data
-    ###############################################################################
-    # Preprocessing the datasets.
-    # First we tokenize all the texts.
-    column_names = dataset["train"].column_names
-    preprocess_function_wrapped = partial(
-        preprocess_function,
-        max_input_length=encoder_max_length,
-        max_target_length=decoder_max_length,
-        tokenizer=tokenizer
-    )
-    processed_datasets = dataset.map(
-        preprocess_function_wrapped,
-        batched=True,
-        num_proc=8,
-        remove_columns=column_names,
-        load_from_cache_file=not None,
-        desc="Running tokenizer on dataset",
-    )
-    train_dataset = processed_datasets["train"]
-    eval_dataset = processed_datasets["validation"] if "validaion" in processed_datasets else processed_datasets["test"]
-
-    # Log a few random samples from the training set:
-    for index in random.sample(range(len(train_dataset)), 2):
-        logger.info(f"Sample {index} of the training set: {train_dataset[index]}.")
-        logger.info(f"Decoded input_ids: {tokenizer.decode(train_dataset[index]['input_ids'])}")
-        logger.info(f"Decoded labels: {tokenizer.decode(train_dataset[index]['labels'])}")
-        logger.info("\n")
-
+def main(index,train_dataset,eval_dataset,tokenizer):
     ###############################################################################
     # Part 4: Create PyTorch dataloaders that handle data shuffling and batching
     ###############################################################################
@@ -372,7 +323,6 @@ def main(index):
     eval_dataloader = DataLoader(
         eval_dataset, sampler=eval_sampler,collate_fn=collation_function_for_seq2seq_wrapped, batch_size=args.batch_size
     )
-    # YOUR CODE ENDS HERE
 
     ###############################################################################
     # Part 5: Create optimizer and scheduler
@@ -414,7 +364,6 @@ def main(index):
     logger.info("Look at the data that we input into the model, check that it looks like what we expect.")
     for index in random.sample(range(len(batch)), 2):
         logger.info(f"Decoded input_ids: {tokenizer.decode(batch['input_ids'][index])}")
-        logger.info(f"Decoded labels: {tokenizer.decode(batch['labels'][index])}")
         logger.info("\n")
 
     ###############################################################################
@@ -431,20 +380,17 @@ def main(index):
         for batch in para_loader_train.per_device_loader(args.device):
             input_ids = batch["input_ids"].to(args.device)
             decoder_input_ids = batch["decoder_input_ids"].to(args.device)
-            key_padding_mask = batch["encoder_padding_mask"].to(args.device)
+            attention_mask = batch["attention_mask"].to(args.device)
             labels = batch["labels"].to(args.device)
 
             logits = model(
                 input_ids,
                 decoder_input_ids=decoder_input_ids,
-                key_padding_mask=key_padding_mask,
+                labels=labels,
+                attention_mask=attention_mask
             )
             optimizer.zero_grad()
-            loss = F.cross_entropy(
-                logits.view(-1, logits.shape[-1]),
-                labels.view(-1),
-                ignore_index=tokenizer.pad_token_id,
-            )
+            loss = logits.loss()
 
             loss.backward()
             xm.optimizer_step(optimizer)
@@ -463,25 +409,14 @@ def main(index):
                 step=global_step,
             )
 
-            if global_step % args.logging_steps == 0:
-                predictions = logits.argmax(-1)
-                label_nonpad_mask = labels != tokenizer.pad_token_id
-                num_words_in_batch = label_nonpad_mask.sum().item()
-
-                accuracy = (predictions == labels).masked_select(label_nonpad_mask).sum().item() / num_words_in_batch
-
-                wandb.log(
-                    {"train_batch_word_accuracy": accuracy},
-                    step=global_step,
-                )
-
+            
             if global_step % args.eval_every_steps == 0 or global_step == args.max_train_steps:
                 eval_results, last_input_ids, last_decoded_preds, last_decoded_labels = evaluate_model(
                     model=model,
                     dataloader=para_loader_eval.per_device_loader(args.device),
                     tokenizer=tokenizer,
                     device=args.device,
-                    max_seq_length=max_seq_length,
+                    max_seq_length=decoder_max_length,
                     generation_type=args.generation_type,
                     beam_size=args.beam_size,
                     metric=metric
@@ -525,5 +460,44 @@ def main(index):
 if __name__ == "__main__":
     if version.parse(datasets.__version__) < version.parse("1.18.0"):
         raise RuntimeError("This script requires Datasets 1.18.0 or higher. Please update via pip install -U datasets.")
+    args = parse_args()
+    wandb.init(project='pre-trained-bart',config=args)
+    ###############################################################################
+    # Part 1: Load the data
+    ###############################################################################
 
-    xmp.spawn(main,nprocs=8)
+    # Make sure output directory exists, if not create it
+    os.makedirs(args.output_dir, exist_ok=True)
+
+    # Load the datasets
+    dataset = load_dataset("cnn_dailymail", '3.0.0')
+    metric = load_metric(args.metric)
+    ###############################################################################
+    # Part 2: Create the model and load the tokenizers
+    ###############################################################################
+    tokenizer = BartTokenizer.from_pretrained('facebook/bart-base')
+    model = BartForConditionalGeneration.from_pretrained('facebook/bart-base')
+    model = model.to(args.device)
+    ###############################################################################
+    # Part 3: Pre-process the data
+    ###############################################################################
+    # Preprocessing the datasets.
+    # First we tokenize all the texts.
+    column_names = dataset["train"].column_names
+    preprocess_function_wrapped = partial(
+        preprocess_function,
+        max_input_length=encoder_max_length,
+        max_target_length=decoder_max_length,
+        tokenizer=tokenizer
+    )
+    processed_datasets = dataset.map(
+        preprocess_function_wrapped,
+        batched=True,
+        num_proc=8,
+        remove_columns=column_names,
+        load_from_cache_file=not None,
+        desc="Running tokenizer on dataset",
+    )
+    train_dataset = processed_datasets["train"]
+    eval_dataset = processed_datasets["validation"] if "validaion" in processed_datasets else processed_datasets["test"]
+    xmp.spawn(main,nprocs=8,model=model,train_dataset=train_dataset,eval_dataset=eval_dataset,tokenizer=tokenizer)
