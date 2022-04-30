@@ -221,8 +221,8 @@ args = parse_args()
 dataset = load_dataset(args.dataset_name, args.dataset_version)
 metric = load_metric(args.metric)
 
-encoder_max_length = 256
-decoder_max_length = 64
+encoder_max_length = 1024
+decoder_max_length = 128
 
 nltk.download("punkt", quiet=True)
 def postprocess_text(preds, labels):
@@ -238,12 +238,16 @@ def postprocess_text(preds, labels):
 prefix = "summarize"
 def preprocess_function(examples,tokenizer,max_input_length,max_target_length):
     inputs = [prefix + doc for doc in examples["article"]]
-    model_inputs = tokenizer(inputs, max_length=max_input_length, truncation=True)
+    targets = [doc for doc in examples["highlights"]]
+    model_inputs = tokenizer(inputs, max_length=max_input_length,padding="max_length", truncation=True)
 
     # Setup the tokenizer for targets
     with tokenizer.as_target_tokenizer():
-        labels = tokenizer(examples["highlights"], max_length=max_target_length, truncation=True)
+        labels = tokenizer(targets, max_length=max_target_length,padding="max_length", truncation=True)
 
+    labels["input_ids"] = [
+                [(l if l != tokenizer.pad_token_id else -100) for l in label] for label in labels["input_ids"]
+            ]
     model_inputs["labels"] = labels["input_ids"]
     return model_inputs
 
@@ -265,10 +269,10 @@ def evaluate_model(
             input_ids = batch["input_ids"].to(device)
             labels = batch["labels"].to(device)
             labels = np.where(labels != -100, labels, tokenizer.pad_token_id)
-            key_padding_mask = batch["encoder_padding_mask"].to(device)
+            attention_mask = batch["attention_mask"].to(device)
             generated_tokens = model.generate(
                 input_ids,
-                key_padding_mask=key_padding_mask,
+                attention_mask=attention_mask,
                 max_length=max_seq_length,
                 kind=generation_type,
                 beam_size=beam_size,
@@ -340,15 +344,18 @@ def main():
     # Log a few random samples from the training set:
     for index in random.sample(range(len(train_dataset)), 2):
         logger.info(f"Sample {index} of the training set: {train_dataset[index]}.")
-        logger.info(f"Decoded input_ids: {tokenizer.decode(train_dataset[index]['input_ids'])}")
-        logger.info(f"Decoded labels: {tokenizer.decode(train_dataset[index]['labels'])}")
         logger.info("\n")
 
     ###############################################################################
     # Part 4: Create PyTorch dataloaders that handle data shuffling and batching
     ###############################################################################
     
-    data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model, padding='max_length')
+    data_collator = DataCollatorForSeq2Seq(
+        tokenizer,
+        model=model,
+        label_pad_token_id=-100,
+       
+    )
 
     collation_function_for_seq2seq_wrapped = partial(
         data_collator
@@ -418,20 +425,16 @@ def main():
         for batch in train_dataloader:
             input_ids = batch["input_ids"].to(args.device)
             decoder_input_ids = batch["decoder_input_ids"].to(args.device)
-            key_padding_mask = batch["encoder_padding_mask"].to(args.device)
+            attention_mask = batch["attention_mask"].to(args.device)
             labels = batch["labels"].to(args.device)
 
             logits = model(
                 input_ids,
                 decoder_input_ids=decoder_input_ids,
-                key_padding_mask=key_padding_mask,
+                attention_mask=attention_mask,
             )
             optimizer.zero_grad()
-            loss = F.cross_entropy(
-                logits.view(-1, logits.shape[-1]),
-                labels.view(-1),
-                ignore_index=tokenizer.pad_token_id,
-            )
+            loss = logits.loss()
 
             loss.backward()
             optimizer.step()
