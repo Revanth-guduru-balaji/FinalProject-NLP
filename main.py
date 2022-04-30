@@ -102,7 +102,7 @@ def parse_args():
     # Training arguments
     parser.add_argument(
         "--device",
-        default=xm.xla_device(),                                                 #"cuda" if torch.cuda.is_available() else "cpu",
+        default=None,                                                 #"cuda" if torch.cuda.is_available() else "cpu",
         help="Device (cuda or cpu) on which the code should run",
     )
     parser.add_argument(
@@ -322,7 +322,8 @@ metric = load_metric(args.metric)
 ###############################################################################
 tokenizer = BartTokenizer.from_pretrained('facebook/bart-base')
 model = BartForConditionalGeneration.from_pretrained('facebook/bart-base')
-model = model.to(args.device)
+device = xm.xla_device()
+model = model.to(device)
 ###############################################################################
 # Part 3: Pre-process the data
 ###############################################################################
@@ -423,18 +424,18 @@ def main(index):
     # Part 6: Training loop
     ###############################################################################
     global_step = 0
-    para_loader_train = pl.ParallelLoader(train_dataloader, [args.device])
-    para_loader_eval = pl.ParallelLoader(eval_dataloader, [args.device])
+    para_loader_train = pl.ParallelLoader(train_dataloader, [device])
+    para_loader_eval = pl.ParallelLoader(eval_dataloader, [device])
     # iterate over epochs
     for epoch in range(num_train_epochs):
         model.train()  # make sure that model is in training mode, e.g. dropout is enabled
 
         # iterate over batches
-        for batch in para_loader_train.per_device_loader(args.device):
-            input_ids = batch["input_ids"].to(args.device)
-            decoder_input_ids = batch["decoder_input_ids"].to(args.device)
-            attention_mask = batch["attention_mask"].to(args.device)
-            labels = batch["labels"].to(args.device)
+        for batch in para_loader_train.per_device_loader(device):
+            input_ids = batch["input_ids"].to(device)
+            decoder_input_ids = batch["decoder_input_ids"].to(device)
+            attention_mask = batch["attention_mask"].to(device)
+            labels = batch["labels"].to(device)
 
             logits = model(
                 input_ids,
@@ -466,9 +467,9 @@ def main(index):
             if global_step % args.eval_every_steps == 0 or global_step == args.max_train_steps:
                 eval_results, last_input_ids, last_decoded_preds, last_decoded_labels = evaluate_model(
                     model=model,
-                    dataloader=para_loader_eval.per_device_loader(args.device),
+                    dataloader=para_loader_eval.per_device_loader(device),
                     tokenizer=tokenizer,
-                    device=args.device,
+                    device=device,
                     max_seq_length=decoder_max_length,
                     generation_type=args.generation_type,
                     beam_size=args.beam_size,
