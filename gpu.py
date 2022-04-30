@@ -25,12 +25,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-#import packages for pytorch tpu
-# import torch_xla
-# import torch_xla.core.xla_model as xm
-# import torch_xla.distributed.parallel_loader as pl
-# import torch_xla.distributed.xla_multiprocessing as xmp
-
 
 
 # Setup logging
@@ -301,7 +295,7 @@ def evaluate_model(
 def main():
     # Initialize wandb as soon as possible to log all stdout to the cloud
     args = parse_args()
-    wandb.init(project='pre-trained-bart',config=args)
+    wandb.init(project='pre-trained-bart-gpu',config=args)
     ###############################################################################
     # Part 1: Load the data
     ###############################################################################
@@ -316,8 +310,7 @@ def main():
     # Part 2: Create the model and load the tokenizers
     ###############################################################################
     tokenizer = BartTokenizer.from_pretrained('facebook/bart-base')
-    model = BartForConditionalGeneration.from_pretrained('facebook/bart-base')
-    model = model.to(args.device)
+    model = BartForConditionalGeneration.from_pretrained('facebook/bart-base').to(args.device)
     ###############################################################################
     # Part 3: Pre-process the data
     ###############################################################################
@@ -410,7 +403,6 @@ def main():
     logger.info("Look at the data that we input into the model, check that it looks like what we expect.")
     for index in random.sample(range(len(batch)), 2):
         logger.info(f"Decoded input_ids: {tokenizer.decode(batch['input_ids'][index])}")
-        logger.info(f"Decoded labels: {tokenizer.decode(batch['labels'][index])}")
         logger.info("\n")
 
     ###############################################################################
@@ -427,10 +419,11 @@ def main():
             decoder_input_ids = batch["decoder_input_ids"].to(args.device)
             attention_mask = batch["attention_mask"].to(args.device)
             labels = batch["labels"].to(args.device)
-
+            
             logits = model(
                 input_ids,
                 decoder_input_ids=decoder_input_ids,
+                labels=labels,
                 attention_mask=attention_mask,
             )
             optimizer.zero_grad()
@@ -453,17 +446,6 @@ def main():
                 step=global_step,
             )
 
-            if global_step % args.logging_steps == 0:
-                predictions = logits.argmax(-1)
-                label_nonpad_mask = labels != tokenizer.pad_token_id
-                num_words_in_batch = label_nonpad_mask.sum().item()
-
-                accuracy = (predictions == labels).masked_select(label_nonpad_mask).sum().item() / num_words_in_batch
-
-                wandb.log(
-                    {"train_batch_word_accuracy": accuracy},
-                    step=global_step,
-                )
 
             if global_step % args.eval_every_steps == 0 or global_step == args.max_train_steps:
                 eval_results, last_input_ids, last_decoded_preds, last_decoded_labels = evaluate_model(
@@ -471,7 +453,7 @@ def main():
                     dataloader=eval_dataloader,
                     tokenizer=tokenizer,
                     device=args.device,
-                    max_seq_length=max_seq_length,
+                    max_seq_length=decoder_max_length,
                     generation_type=args.generation_type,
                     beam_size=args.beam_size,
                 )
@@ -503,7 +485,7 @@ def main():
     ###############################################################################
 
     logger.info("Saving final model checkpoint to %s", args.output_dir)
-    model.save_pretrained(args.output_dir,save_function=xm.save)
+    model.save_pretrained(args.output_dir)
 
     logger.info("Uploading tokenizer, model and config to wandb")
     wandb.save(os.path.join(args.output_dir, "*"))

@@ -359,23 +359,11 @@ def main():
         data_collator
     )
 
-    train_sampler = torch.utils.data.distributed.DistributedSampler(
-        train_dataset,
-        num_replicas=xm.xrt_world_size(),
-        rank=xm.get_ordinal(),
-        shuffle=True
-    )
-    eval_sampler = torch.utils.data.distributed.DistributedSampler(
-        eval_dataset,
-        num_replicas=xm.xrt_world_size(),
-        rank=xm.get_ordinal(),
-        shuffle=True
-    )
     train_dataloader = DataLoader(
-        train_dataset,sampler=train_sampler,  collate_fn=collation_function_for_seq2seq_wrapped, batch_size=args.batch_size
+        train_dataset,shuffle=True,  collate_fn=collation_function_for_seq2seq_wrapped, batch_size=args.batch_size
     )
     eval_dataloader = DataLoader(
-        eval_dataset, sampler=eval_sampler,collate_fn=collation_function_for_seq2seq_wrapped, batch_size=args.batch_size
+        eval_dataset, shuffle=True,collate_fn=collation_function_for_seq2seq_wrapped, batch_size=args.batch_size
     )
 
     ###############################################################################
@@ -424,14 +412,12 @@ def main():
     # Part 6: Training loop
     ###############################################################################
     global_step = 0
-    para_loader_train = pl.ParallelLoader(train_dataloader, [device])
-    para_loader_eval = pl.ParallelLoader(eval_dataloader, [device])
     # iterate over epochs
     for epoch in range(num_train_epochs):
         model.train()  # make sure that model is in training mode, e.g. dropout is enabled
 
         # iterate over batches
-        for batch in para_loader_train.per_device_loader(device):
+        for batch in train_dataloader:
             input_ids = batch["input_ids"].to(device)
             decoder_input_ids = batch["decoder_input_ids"].to(device)
             attention_mask = batch["attention_mask"].to(device)
@@ -467,7 +453,7 @@ def main():
             if global_step % args.eval_every_steps == 0 or global_step == args.max_train_steps:
                 eval_results, last_input_ids, last_decoded_preds, last_decoded_labels = evaluate_model(
                     model=model,
-                    dataloader=para_loader_eval.per_device_loader(device),
+                    dataloader=eval_dataloader,
                     tokenizer=tokenizer,
                     device=device,
                     max_seq_length=decoder_max_length,
