@@ -427,7 +427,7 @@ def main():
                 attention_mask=attention_mask,
             )
             optimizer.zero_grad()
-            loss = logits.loss()
+            loss = logits.loss
 
             loss.backward()
             optimizer.step()
