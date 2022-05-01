@@ -56,15 +56,6 @@ def parse_args():
    
     # Data arguments
     parser.add_argument(
-        "--dataset_config_name",
-        type=str,
-        default="en-de",
-        help=("Many datasets in Huggingface Dataset repository have multiple versions or configs. "
-              "For the case of machine translation these usually indicate the language pair like "
-              "en-es or zh-fr or similar. To look up possible configs of a dataset, "
-              "find it on huggingface.co/datasets."),
-    )
-    parser.add_argument(
         "--debug",
         default=False,
         action="store_true",
@@ -366,15 +357,12 @@ def main():
     ###############################################################################
     # Part 5: Create optimizer and scheduler
     ###############################################################################
-    learning_rate = 2e-5
-    batch_size = 16
-    num_train_epochs = 4
-    weight_decay = 0.01
+
 
     optimizer = torch.optim.AdamW(
         model.parameters(),
-        lr=learning_rate ,
-        weight_decay=weight_decay,
+        lr=args.learning_rate ,
+        weight_decay=args.weight_decay,
     )
 
     # Scheduler and math around the number of training steps.
@@ -393,7 +381,7 @@ def main():
 
     logger.info("***** Running training *****")
     logger.info(f"  Num examples = {len(train_dataset)}")
-    logger.info(f"  Num Epochs = {num_train_epochs}")
+    logger.info(f"  Num Epochs = {args.num_train_epochs}")
     logger.info(f"  Total optimization steps = {args.max_train_steps}")
     progress_bar = tqdm(range(args.max_train_steps))
 
@@ -410,7 +398,7 @@ def main():
     ###############################################################################
     global_step = 0
     # iterate over epochs
-    for epoch in range(num_train_epochs):
+    for epoch in range(args.num_train_epochs):
         model.train()  # make sure that model is in training mode, e.g. dropout is enabled
 
         # iterate over batches
