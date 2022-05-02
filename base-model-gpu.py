@@ -6,7 +6,7 @@ from functools import partial
 from tqdm.auto import tqdm
 import random
 
-from zmq import device
+
 import wandb
 import nltk
 import datasets
@@ -227,11 +227,11 @@ prefix = "summarize"
 def preprocess_function(examples,tokenizer,max_input_length,max_target_length):
     inputs = [prefix + doc for doc in examples["article"]]
     targets = [doc for doc in examples["highlights"]]
-    model_inputs = tokenizer(inputs, max_length=max_input_length,padding="max_length", truncation=True)
+    model_inputs = tokenizer(inputs, max_length=max_input_length, truncation=True)
 
     # Setup the tokenizer for targets
     with tokenizer.as_target_tokenizer():
-        labels = tokenizer(targets, max_length=max_target_length,padding="max_length", truncation=True)
+        labels = tokenizer(targets, max_length=max_target_length, truncation=True)
 
     labels["input_ids"] = [
                 [(l if l != tokenizer.pad_token_id else -100) for l in label] for label in labels["input_ids"]
@@ -247,7 +247,6 @@ def evaluate_model(
     tokenizer,
     device,
     max_seq_length,
-    generation_type,
     beam_size,
 ):
     n_generated_tokens = 0
@@ -255,15 +254,14 @@ def evaluate_model(
     for batch in tqdm(dataloader, desc="Evaluation"):
         with torch.inference_mode():
             input_ids = batch["input_ids"].to(device)
-            labels = batch["labels"].to(device)
+            labels = batch["labels"]
             labels = np.where(labels != -100, labels, tokenizer.pad_token_id)
             attention_mask = batch["attention_mask"].to(device)
             generated_tokens = model.generate(
                 input_ids,
                 attention_mask=attention_mask,
                 max_length=max_seq_length,
-                kind=generation_type,
-                beam_size=beam_size,
+                num_beams=beam_size,
             )
             decoded_preds = tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
             decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
@@ -304,7 +302,7 @@ def main():
     # Part 2: Create the model and load the tokenizers
     ###############################################################################
     tokenizer = BartTokenizer.from_pretrained('facebook/bart-base')
-    model = BartForConditionalGeneration(BartConfig())
+    model =  BartForConditionalGeneration(BartConfig()).to(args.device)
     ###############################################################################
     # Part 3: Pre-process the data
     ###############################################################################
@@ -410,6 +408,8 @@ def main():
             decoder_input_ids = batch["decoder_input_ids"].to(args.device)
             attention_mask = batch["attention_mask"].to(args.device)
             labels = batch["labels"].to(args.device)
+
+            import ipdb; ipdb.set_trace()
             
             logits = model(
                 input_ids,
@@ -445,8 +445,7 @@ def main():
                     tokenizer=tokenizer,
                     device=args.device,
                     max_seq_length=decoder_max_length,
-                    generation_type=args.generation_type,
-                    beam_size=args.beam_size,
+                    num_beams=args.beam_size,
                 )
                 # YOUR CODE ENDS HERE
                 wandb.log(
