@@ -5,6 +5,8 @@ import argparse
 from functools import partial
 from tqdm.auto import tqdm
 import random
+
+from zmq import device
 import wandb
 import nltk
 import datasets
@@ -12,6 +14,7 @@ import numpy as np
 from packaging import version
 
 import transformers
+from transformers import AutoModel,AutoConfig
 from transformers import AutoTokenizer,BartConfig
 from torch.utils.data import DataLoader
 from datasets import load_dataset, load_metric
@@ -301,11 +304,7 @@ def main():
     # Part 2: Create the model and load the tokenizers
     ###############################################################################
     tokenizer = BartTokenizer.from_pretrained('facebook/bart-base')
-    config = BartConfig(
-    max_position_embeddings=1024,
-    vocab_size=tokenizer.vocab_size
-    )
-    model = BartForConditionalGeneration.from_pretrained('config').to(args.device)
+    model = BartForConditionalGeneration(BartConfig())
     ###############################################################################
     # Part 3: Pre-process the data
     ###############################################################################
