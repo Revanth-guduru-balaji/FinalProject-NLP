@@ -13,6 +13,7 @@ from packaging import version
 
 import transformers
 from transformers import AutoTokenizer
+from transformers import AutoModel,AutoConfig
 from torch.utils.data import DataLoader
 from datasets import load_dataset, load_metric
 from transformers import (
@@ -259,8 +260,7 @@ def evaluate_model(
                 input_ids,
                 attention_mask=attention_mask,
                 max_length=max_seq_length,
-                kind=generation_type,
-                beam_size=beam_size,
+                num_beams=beam_size,
             )
             decoded_preds = tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
             decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
@@ -443,7 +443,7 @@ def main():
                     device=args.device,
                     max_seq_length=decoder_max_length,
                     generation_type=args.generation_type,
-                    beam_size=args.beam_size,
+                    num_beams=args.beam_size,
                 )
                 # YOUR CODE ENDS HERE
                 wandb.log(
