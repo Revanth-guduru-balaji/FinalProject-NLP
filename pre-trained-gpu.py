@@ -257,7 +257,7 @@ def evaluate_model(
             labels = np.where(labels != -100, labels, tokenizer.pad_token_id)
             attention_mask = batch["attention_mask"].to(device)
             generated_tokens = model.generate(
-                input_ids,
+                input_ids=input_ids,
                 attention_mask=attention_mask,
                 max_length=max_seq_length,
                 num_beams=beam_size,
