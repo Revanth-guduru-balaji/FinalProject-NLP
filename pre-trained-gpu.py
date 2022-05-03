@@ -253,8 +253,8 @@ def evaluate_model(
     for batch in tqdm(dataloader, desc="Evaluation"):
         with torch.inference_mode():
             input_ids = batch["input_ids"].to(device)
-            labels = batch["labels"].to(device)
-            labels = torch.where(labels != -100, labels, tokenizer.pad_token_id)
+            labels = batch["labels"]
+            labels = np.where(labels != -100, labels, tokenizer.pad_token_id)
             attention_mask = batch["attention_mask"].to(device)
             generated_tokens = model.generate(
                 input_ids=input_ids,
