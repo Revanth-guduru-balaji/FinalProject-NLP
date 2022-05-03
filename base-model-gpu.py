@@ -247,7 +247,7 @@ def evaluate_model(
     tokenizer,
     device,
     max_seq_length,
-    beam_size,
+    num_beams,
 ):
     n_generated_tokens = 0
     model.eval()
@@ -261,7 +261,7 @@ def evaluate_model(
                 input_ids,
                 attention_mask=attention_mask,
                 max_length=max_seq_length,
-                num_beams=beam_size,
+                num_beams=num_beams,
             )
             decoded_preds = tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
             decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
