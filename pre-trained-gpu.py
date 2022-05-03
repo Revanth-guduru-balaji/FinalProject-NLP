@@ -246,7 +246,7 @@ def evaluate_model(
     device,
     max_seq_length,
     generation_type,
-    beam_size,
+    num_beams,
 ):
     n_generated_tokens = 0
     model.eval()
@@ -254,13 +254,13 @@ def evaluate_model(
         with torch.inference_mode():
             input_ids = batch["input_ids"].to(device)
             labels = batch["labels"].to(device)
-            labels = np.where(labels != -100, labels, tokenizer.pad_token_id)
+            labels = torch.where(labels != -100, labels, tokenizer.pad_token_id)
             attention_mask = batch["attention_mask"].to(device)
             generated_tokens = model.generate(
                 input_ids=input_ids,
                 attention_mask=attention_mask,
                 max_length=max_seq_length,
-                num_beams=beam_size,
+                num_beams=num_beams,
             )
             decoded_preds = tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
             decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
