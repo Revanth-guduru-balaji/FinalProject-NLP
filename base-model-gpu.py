@@ -409,7 +409,6 @@ def main():
             attention_mask = batch["attention_mask"].to(args.device)
             labels = batch["labels"].to(args.device)
 
-            import ipdb; ipdb.set_trace()
             
             logits = model(
                 input_ids,
