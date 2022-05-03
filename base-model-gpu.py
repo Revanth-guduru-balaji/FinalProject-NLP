@@ -274,7 +274,6 @@ def evaluate_model(
             metric.add_batch(predictions=decoded_preds, references=decoded_labels)
     model.train()
     eval_metric = metric.compute()
-    import ipdb;ipdb.set_trace()
 
     result = {key: value.mid.fmeasure * 100 for key, value in eval_metric.items()}
     result["gen_len"] = n_generated_tokens / len(dataloader.dataset)
