@@ -125,7 +125,7 @@ def parse_args():
     parser.add_argument(
         "--eval_every_steps",
         type=int,
-        default=20000,
+        default=5000,
         help="Perform evaluation every n network updates.",
     )
     parser.add_argument(
@@ -254,8 +254,8 @@ def evaluate_model(
     for batch in tqdm(dataloader, desc="Evaluation"):
         with torch.inference_mode():
             input_ids = batch["input_ids"].to(device)
-            labels = batch["labels"].to(device)
-            labels = torch.where(labels != -100, labels, tokenizer.pad_token_id)
+            labels = batch["labels"]
+            labels = np.where(labels != -100, labels, tokenizer.pad_token_id)
             attention_mask = batch["attention_mask"].to(device)
             generated_tokens = model.generate(
                 input_ids,
@@ -272,12 +272,12 @@ def evaluate_model(
             decoded_preds, decoded_labels = postprocess_text(decoded_preds, decoded_labels)
 
             metric.add_batch(predictions=decoded_preds, references=decoded_labels)
-
     model.train()
     eval_metric = metric.compute()
+    import ipdb;ipdb.set_trace()
+
     result = {key: value.mid.fmeasure * 100 for key, value in eval_metric.items()}
-    prediction_lens = [np.count_nonzero(pred != tokenizer.pad_token_id) for pred in preds]
-    result["gen_len"] = np.mean(prediction_lens)
+    result["gen_len"] = n_generated_tokens / len(dataloader.dataset)
     result = {k: round(v, 3) for k, v in result.items()}
     return result, input_ids, decoded_preds, decoded_labels
 
