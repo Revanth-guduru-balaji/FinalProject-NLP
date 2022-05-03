@@ -254,8 +254,8 @@ def evaluate_model(
     for batch in tqdm(dataloader, desc="Evaluation"):
         with torch.inference_mode():
             input_ids = batch["input_ids"].to(device)
-            labels = batch["labels"]
-            labels = np.where(labels != -100, labels, tokenizer.pad_token_id)
+            labels = batch["labels"].to(device)
+            labels = torch.where(labels != -100, labels, tokenizer.pad_token_id)
             attention_mask = batch["attention_mask"].to(device)
             generated_tokens = model.generate(
                 input_ids,
@@ -275,14 +275,11 @@ def evaluate_model(
 
     model.train()
     eval_metric = metric.compute()
-    evaluation_results = {
-        "rouge1": eval_metric["rouge1"].mid.fmeasure * 100,
-        "rouge2":eval_metric["rouge2"].mid.fmeasure * 100,
-        "rougeL":eval_metric["rougeL"].mid.fmeasure * 100,
-        "rougeLsum":eval_metric["rougeLsum"].mid.fmeasure * 100,
-        "generation_length": n_generated_tokens / len(dataloader.dataset),
-    }
-    return evaluation_results, input_ids, decoded_preds, decoded_labels
+    result = {key: value.mid.fmeasure * 100 for key, value in eval_metric.items()}
+    prediction_lens = [np.count_nonzero(pred != tokenizer.pad_token_id) for pred in preds]
+    result["gen_len"] = np.mean(prediction_lens)
+    result = {k: round(v, 3) for k, v in result.items()}
+    return result, input_ids, decoded_preds, decoded_labels
 
 def main():
     # Initialize wandb as soon as possible to log all stdout to the cloud
@@ -448,13 +445,7 @@ def main():
                 )
                 # YOUR CODE ENDS HERE
                 wandb.log(
-                    {
-                        "eval/rouge1": eval_results["rouge1"].mid.fmeasure,
-                        "eval/rouge2": eval_results["rouge2"].mid.fmeasure,
-                        "eval/rougeL": eval_results["rougeL"].mid.fmeasure,
-                        "eval/rougeLsum": eval_results["rougeLsum"].mid.fmeasure,
-                        "eval/generation_length": eval_results["generation_length"],
-                    },
+                   eval_results,
                     step=global_step,
                 )
                 logger.info("Generation example:")
