@@ -5,3 +5,4 @@ wandb
 transformers
 matplotlib
 sacrebleu
+rouge-score
