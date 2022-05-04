@@ -1,14 +1,20 @@
 import streamlit as st
 from PIL import Image
-from transformers import PreTrainedTokenizerFast
-from transformer_mt.modeling_transformer import TransfomerEncoderDecoderModel
+import transformers
+from transformers import (
+    BartTokenizer,
+    BartForConditionalGeneration,
+    BartConfig
+)
 
+device = ""
+tokenizer = BartTokenizer.from_pretrained('facebook/bart-base')
+config = BartConfig.from_json_file("./config.json")
+model = BartForConditionalGeneration.from_pretrained("./pytorch_model.bin", config=config)
 
-
-source_tokenizer = PreTrainedTokenizerFast.from_pretrained("../output_dir/source_tokenizer")
-target_tokenizer = PreTrainedTokenizerFast.from_pretrained("../output_dir/target_tokenizer")
-model = TransfomerEncoderDecoderModel.from_pretrained("../output_dir")
 model.eval()
+
+
 
 
 image = Image.open('summy.png')
@@ -17,22 +23,20 @@ st.image(image, use_column_width=True)
 
 st.write("""
 # Text Summarization
-Using bart model!
+Using bart model!a
 ***
 """)
 
+
+
 st.header('Enter Input Sequence')
 sequence_input = st.text_area("Sequence input", "Enter text here...", height=250)
+if st.button("Summarize"):
+    input_object = tokenizer(sequence_input,text_pair=None,padding=True,return_tensors="pt")
 
-input_ids = source_tokenizer.encode(sequence_input, return_tensors="pt")
-output_ids = model.generate(
-    input_ids,
-    max_length=500,
-    bos_token_id=target_tokenizer.bos_token_id,
-    eos_token_id=target_tokenizer.eos_token_id,
-    pad_token_id=target_tokenizer.pad_token_id,
-)
-
-sequence_output = target_tokenizer.decode(output_ids[0])
-st.header('Generated Output Sequence')
-st.text_area("Sequence Output", sequence_output, height=250)
+    output_ids = model.generate(input_ids=input_object["input_ids"], attention_mask=input_object["attention_mask"])
+    sequence_output = tokenizer.batch_decode(output_ids)
+    sequence_output=sequence_output[0].replace('<s>','')
+    sequence_output=sequence_output.replace('</s>','')
+    st.header('Model Output Sequence')
+    st.text_area("Sequence Output", sequence_output, height=250)
