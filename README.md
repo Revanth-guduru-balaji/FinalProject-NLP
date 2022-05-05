@@ -1,7 +1,7 @@
 # Text Summarization Using facebook/bart-base model
 ## Step1 - Clone the repository in your command prompt.
 ```bash
-git clone  
+git clone https://github.com/Revanth-guduru-balaji/FinalProject-NLP.git
 ```
 ## Step2 - Install all the required packages.
 Run the below command for installing required packages.
@@ -12,6 +12,14 @@ pip install -r requirements.txt
 ```bash
 python -c "import torch;torch.cuda.is_available();"
 ```
+If it returns true we can go head.
+If it return false then follow below points.
+1. If your CUDA version is below 10.2, don't use this server
+2. If your CUDA version is below 11, run pip install torch
+3. If your CUDA version is 11.X run, pip install torch==1.10.2+cu113 -f https://download.pytorch.org/whl/cu113/torch_stable.html
+4. Check that pytorch-GPU works via python -c "import torch; print(torch.cuda.is_available())". If it returns False, reinstall pytorch via one of the above commands (usually this helps), if it doesn't help, describe your problem in #discussion.
+5. If you are using 30XX, A100 or A6000 GPU, you have to use CUDA 11.3 and above.
+
 ## Step4 - Train the pre-trained model.
 Run the below command to train by default values.
 ```bash
