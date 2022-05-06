@@ -36,6 +36,11 @@ python pre-trained-model.py \
     --eval_every_steps 5000
 ```
 ## Step5 -Using Streamlit we can now interact  with our trained model.
+Make sure the paths are correct in app.py for the below two lines for `config.json` and `pytorch_model.bin`.
+```bash
+config = BartConfig.from_json_file("./config.json")
+model = BartForConditionalGeneration.from_pretrained("./pytorch_model.bin", config=config)
+```
 Run the below command.
 ```bash
 streamlit run app.py
