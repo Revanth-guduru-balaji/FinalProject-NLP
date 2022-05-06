@@ -40,4 +40,5 @@ Run the below command.
 ```bash
 streamlit run app.py
 ```
-
+## Sample Output looks like below picture.
+![alt text](https://github.com/[username]/[reponame]/blob/[branch]/image.jpg?raw=true)
