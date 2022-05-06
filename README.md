@@ -41,4 +41,4 @@ Run the below command.
 streamlit run app.py
 ```
 ## Sample Output looks like below picture.
-![alt text](https://github.com/[username]/[reponame]/blob/[branch]/image.jpg?raw=true)
+![alt text](https://github.com/Revanth-guduru-balaji/FinalProject-NLP/blob/main/sample%20output.jpeg)
