@@ -4,9 +4,8 @@ import os
 import argparse
 from functools import partial
 from tqdm.auto import tqdm
+
 import random
-
-
 import wandb
 import nltk
 import datasets
@@ -43,36 +42,23 @@ transformers.utils.logging.set_verbosity_warning()
 
 def parse_args():
     """This function creates argument parser and parses the scrip input arguments."""
-    parser = argparse.ArgumentParser(description="Train machine translation transformer model")
+    parser = argparse.ArgumentParser(description="Train bart-base model from scratch for text summarization")
 
     # Required arguments
     parser.add_argument(
         "--output_dir",
         type=str,
         required=True,
-        help=("Where to store the final model. "
-              "Should contain the source and target tokenizers in the following format: "
-              r"output_dir/{source_lang}_tokenizer and output_dir/{target_lang}_tokenizer. "
-              "Both of these should be directories containing tokenizer.json files."
-        ),
+        help=("Where to store the final model. "),
     )
-   
-    # Data arguments
     parser.add_argument(
         "--debug",
         default=False,
         action="store_true",
         help="Whether to use a small subset of the dataset for debugging.",
     )
+
     # Model arguments
-    parser.add_argument(
-        "--max_seq_length",
-        type=int,
-        default=256,
-        help="The maximum total sequence length for source and target texts after "
-        "tokenization. Sequences longer than this will be truncated, sequences shorter will be padded."
-        "during ``evaluate`` and ``predict``.",
-    )
     parser.add_argument(
         "--preprocessing_num_workers",
         type=int,
@@ -284,23 +270,21 @@ def main():
     # Initialize wandb as soon as possible to log all stdout to the cloud
     args = parse_args()
     wandb.init(project='base-model-bart-gpu',config=args)
-    ###############################################################################
-    # Part 1: Load the data
-    ###############################################################################
-
+    
     # Make sure output directory exists, if not create it
     os.makedirs(args.output_dir, exist_ok=True)
-
+    ###############################################################################
+    #                            Load the data
+    ###############################################################################
     # Load the datasets
     dataset = load_dataset("cnn_dailymail", '3.0.0')
-
     ###############################################################################
-    # Part 2: Create the model and load the tokenizers
+    #                Create the model and load the tokenizers
     ###############################################################################
     tokenizer = BartTokenizer.from_pretrained('facebook/bart-base')
     model =  BartForConditionalGeneration(BartConfig()).to(args.device)
     ###############################################################################
-    # Part 3: Pre-process the data
+    #                         Pre-process the data
     ###############################################################################
     # Preprocessing the datasets.
     # First we tokenize all the texts.
@@ -328,7 +312,7 @@ def main():
         logger.info("\n")
 
     ###############################################################################
-    # Part 4: Create PyTorch dataloaders that handle data shuffling and batching
+    #     Create PyTorch dataloaders that handle data shuffling and batching
     ###############################################################################
     
     data_collator = DataCollatorForSeq2Seq(
@@ -349,10 +333,10 @@ def main():
     eval_dataloader = DataLoader(
         eval_dataset,shuffle=True,collate_fn=collation_function_for_seq2seq_wrapped, batch_size=args.batch_size
     )
-    # YOUR CODE ENDS HERE
+
 
     ###############################################################################
-    # Part 5: Create optimizer and scheduler
+    #                   Create optimizer and scheduler
     ###############################################################################
 
 
@@ -391,12 +375,12 @@ def main():
         logger.info("\n")
 
     ###############################################################################
-    # Part 6: Training loop
+    #                                   Training loop
     ###############################################################################
     global_step = 0
     # iterate over epochs
     for epoch in range(args.num_train_epochs):
-        model.train()  # make sure that model is in training mode, e.g. dropout is enabled
+        model.train()  
 
         # iterate over batches
         for batch in train_dataloader:
@@ -460,7 +444,7 @@ def main():
                 break
 
     ###############################################################################
-    # Part 8: Save the model
+    #                           Save the model
     ###############################################################################
 
     logger.info("Saving final model checkpoint to %s", args.output_dir)
