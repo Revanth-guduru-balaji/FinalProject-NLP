@@ -4,5 +4,5 @@ tokenizers
 wandb
 transformers
 matplotlib
-sacrebleu
 rouge-score
+nltk
