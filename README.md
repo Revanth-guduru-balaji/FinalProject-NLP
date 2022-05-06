@@ -12,8 +12,8 @@ pip install -r requirements.txt
 ```bash
 python -c "import torch;torch.cuda.is_available();"
 ```
-If it returns true we can go head.
-If it return false then follow below points.
+If it returns `True` we can go head.
+If it return `False` then follow below points.
 1. If your CUDA version is below 10.2, don't use this server
 2. If your CUDA version is below 11, run pip install torch
 3. If your CUDA version is 11.X run, pip install torch==1.10.2+cu113 -f https://download.pytorch.org/whl/cu113/torch_stable.html
